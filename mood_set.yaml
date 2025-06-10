@@ -131,7 +131,7 @@ sequence:
         if:
           - condition: template
             value_template: "{{ is_homewide }}"
-            alias: If full home
+            alias: If homewide
           - alias: There is a mood to set and change
             condition: template
             value_template: >-
@@ -180,9 +180,8 @@ sequence:
                   if:
                     - alias: If the helper exists for the area
                       condition: template
-                      value_template: >
-                        {{ states('input_text.' ~ repeat.item ~ '_mood') not in
-                        ['unknown', 'unavailable'] }}
+                      value_template: |
+                        {{ has_value('input_text.' ~ repeat.item ~ '_mood') }}
                   then:
                     - data:
                         value: "{{ mood_resovled }}"
@@ -253,7 +252,7 @@ sequence:
           if:
             - alias: Does the script exist?
               condition: template
-              value_template: "{{ states(mood_script) != 'unknown' }}"
+              value_template: "{{ has_value(mood_script) }}"
           then:
             - data:
                 target_areas: "{{ target_areas }}"
@@ -261,7 +260,7 @@ sequence:
                 transition_time: "{{ transition_time | default(2) }}"
                 is_homewide: "{{ is_homewide_safe }}"
               action: "{{ mood_script }}"
-              alias: Call the mood script (Sync)
+              alias: Call the mood script
               continue_on_error: true
               enabled: true
           else:

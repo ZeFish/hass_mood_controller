@@ -48,7 +48,6 @@ Here are some examples of how to call the `mood_set` script in your automations 
 
 ```yaml
 # Sync all rooms to the current home mood.
-# This is perfect for an automation that runs when the input_text.home_mood changes.
 - service: script.mood_set
   data:
     mood: "{{ states('input_text.home_mood') }}"
@@ -57,7 +56,8 @@ Here are some examples of how to call the `mood_set` script in your automations 
 
 ```yaml
 # Sync a specific room to the home mood.
-# Useful for after an override, like when a movie finishes.
+# Useful for after an override,
+# like when a movie finishes.
 - service: script.mood_set
   data:
     target_areas:
@@ -68,7 +68,8 @@ Here are some examples of how to call the `mood_set` script in your automations 
 
 ```yaml
 # Refresh all rooms to their current state.
-# This reverts any manual light changes that were made outside of the mood system.
+# This reverts any manual light changes
+# that were made outside of the mood system.
 - service: script.mood_set
 ```
 
@@ -93,7 +94,9 @@ Here are some examples of how to call the `mood_set` script in your automations 
 
 ```yaml
 # Toggle a preset for a physical switch.
-# This call sets the kitchen to bright. If it's already bright, it toggles to the default preset.
+# This call sets the kitchen to bright.
+# If it's already bright, it toggles
+# to the default preset.
 - service: script.mood_set
   data:
     target_areas:
@@ -117,10 +120,12 @@ State is stored using `input_text` helpers. *This makes the current mood and pre
 | `input_text.area_id_mood`    | `input_text`    | Per Area  | (Optional) Stores the current Mood for a specific area (e.g., `input_text.kitchen_mood`).     |
 | `input_text.area_id_preset`  | `input_text`    | Per Area  | (Optional) Stores the current Preset for a specific area (e.g., `input_text.kitchen_preset`). |
 | `input_boolean.area_id_lock` | `input_boolean` | Per Area  | (Optional) A lock to prevent an area from being changed by home-wide Mood calls.              |
-You can still control areas that do not have dedicated `input_text` helpers.
 
-- If you call `mood_set` with no `target_areas`, it will target all areas in your Home Assistant instance. For areas without helpers, it will apply the requested mood using the `default` preset.
-- This is a great way to have secondary areas (like hallways or closets) follow the main home rhythm without needing their own complex state management.
+
+> [!TIP]
+> You can still control areas that do not have dedicated `input_text` helpers.
+> If you call `mood_set` with no `target_areas`, it will target all areas in your Home Assistant instance. For areas without helpers, it will apply the requested mood using the `default` preset.
+> This is a great way to have secondary areas (like hallways or closets) follow the main home rhythm without needing their own complex state management.
 
 ## 2. The Controller : `script.mood_set`
 This is the central nervous system of the entire setup. It is responsible for interpreting requests, determining which areas to change, and dispatching commands to the appropriate mood scripts.
@@ -133,23 +138,21 @@ This is the central nervous system of the entire setup. It is responsible for in
 - transition_time: number of seconds for light transition (default: 2).
 ```
 
-#### The "Smoking Gun" : Dynamic Script Execution
-
-The core of this system's flexibility comes from using Jinja2 templates to dynamically call scripts. A single action can trigger any mood script based on a variable, allowing for infinite scalability.
-
-```yaml
-- variables:
-    mood_script: "script.mood_{{ states('input_text.home_mood') }}"
-- service: "{{ mood_script }}"
-  data:
-    target_areas: "{{ areas }}"
-    preset: "{{ preset }}"
-    transition_time: "{{ transition_time }}"
-  alias: Call the mood script
-  continue_on_error: true
-```
-
-This makes the system infinitely extensible. To add a new mood, you simply create a new `script.mood_[newmood]` and the system will handle it automatically.
+> [!NOTE]
+> **The "Smoking Gun" : Dynamic Script Execution**
+> The core of this system's flexibility comes from using Jinja2 templates to dynamically call scripts. A single action can trigger any mood script based on a variable, allowing for infinite scalability.
+> ```yaml
+> - variables:
+>     mood_script: "script.mood_{{ states('input_text.home_mood') }}"
+> - service: "{{ mood_script }}"
+>   data:
+>     target_areas: "{{ areas }}"
+>     preset: "{{ preset }}"
+>     transition_time: "{{ transition_time }}"
+>   alias: Call the mood script
+>   continue_on_error: true
+> ```
+> This makes the system infinitely extensible. To add a new mood, you simply create a new `script.mood_[newmood]` and the system will handle it automatically.
 
 ## 3. The Automation : `automation.home_mood_change`
 When the `input_text.home_mood` helper changes, it calls `script.mood_set` to propagate that change to all unlocked rooms. The beauty of it is that if you use any "Do not disturb" or "Away" mode, you can disable the automation so that it does not trigger. Altho, you can keep updating the `input_text.house_mood` to keep the moods flowing. When you turn on the automation, it will automatically propagate the mood to all unlocked rooms and thus, keep your home just like you want it.
@@ -304,10 +307,24 @@ The system includes a locking mechanism to prevent mood changes in sensitive are
 
 To ensure fast execution, `script.mood_set` intelligently groups areas by their required mood and preset combination. If 4 rooms need `Morning/default` and 1 room needs `Morning/off`, the script doesn't make 5 individual calls. It makes two optimized calls:
 
-1. `script.mood_morning` (preset: `default`, areas: `[room1, room2, room3, room4]`)
-2. `script.mood_morning` (preset: `off`, areas: `[room5]`)
+```yaml
+- service: script.mood_morning
+  data:
+    target_areas:
+      - room1
+      - room2
+      - room3
+      - room4
+    preset: default
+    
+- service: script.mood_morning
+  data:
+    target_areas:
+      - room5
+    preset: off
+```
 
-This significantly reduces overhead and execution time.
+**This significantly reduces overhead and execution time.**
 
 ### Event Hook: mood_setted
 
@@ -379,6 +396,78 @@ action:
                 - kitchen
               preset: default
 mode: restart
+```
+#### Illuminance based mood change
+The home gets to mood “Day” when the outdoor illuminance get over 4200
+```yaml
+alias: Day
+description: ""
+triggers:
+  - trigger: numeric_state
+    entity_id:
+      - sensor.outdoor_illuminance
+    above: 4200
+    enabled: true
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+conditions:
+  - condition: time
+    after: sensor.home_sun_solar_noon
+    before: input_datetime.unwind
+  - condition: or
+    conditions:
+      - condition: state
+        entity_id: input_text.home_mood
+        state: Evening
+      - condition: state
+        entity_id: input_text.home_mood
+        state: Morning
+actions:
+  - action: input_text.set_value
+    metadata: {}
+    data:
+      value: Day
+    target:
+      entity_id: input_text.home_mood
+mode: restart
+```
+#### Save energy
+After 15 minutes of no motion in bright preset, return to default preset
+```yaml
+alias: Kitchen - Auto - Bright -> Neutral
+description: ""
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.kitchen_motion_occupancy
+    to: "off"
+    for:
+      hours: 0
+      minutes: 15
+      seconds: 0
+    from: "on"
+conditions:
+  - condition: state
+    entity_id: input_text.kitchen_preset
+    state: bright
+actions:
+  - condition: state
+    entity_id: binary_sensor.kitchen_motion_occupancy
+    state: "off"
+    for:
+      hours: 0
+      minutes: 15
+      seconds: 0
+  - action: script.mood_set
+    metadata: {}
+    data:
+      transition_time: 10
+      target_areas:
+        - kitchen
+      preset: default
+mode: single
 ```
 #### Movie time
 This one will lock the living room when the projector is turned on. When a media plays, it will set the living room into movie mode but after a 30 seconds pause, the living room will sync back with the home. When the projector got turned off, the living room get unlocked.
@@ -595,43 +684,7 @@ actions:
 mode: parallel
 max: 10
 ```
-#### Illuminance based mood change
-The home gets to mood “Day” when the outdoor illuminance get over 4200
-```yaml
-alias: Day
-description: ""
-triggers:
-  - trigger: numeric_state
-    entity_id:
-      - sensor.outdoor_illuminance
-    above: 4200
-    enabled: true
-    for:
-      hours: 0
-      minutes: 5
-      seconds: 0
-conditions:
-  - condition: time
-    after: sensor.home_sun_solar_noon
-    before: input_datetime.unwind
-  - condition: or
-    conditions:
-      - condition: state
-        entity_id: input_text.home_mood
-        state: Evening
-      - condition: state
-        entity_id: input_text.home_mood
-        state: Morning
-actions:
-  - action: input_text.set_value
-    metadata: {}
-    data:
-      value: Day
-    target:
-      entity_id: input_text.home_mood
-mode: parallel
-max: 10
-```
+
 #### Morning routine
 In the morning, each room will get to morning individually. When the main rooms are all in the morning state, then the whole home get into morning mood.
 ```yaml
@@ -795,42 +848,6 @@ actions:
           value: Morning
         target:
           entity_id: input_text.home_mood
-mode: parallel
-max: 10
+mode: restart
 ```
-#### Save energy
-After 15 minutes of no motion in bright preset, return to default preset
-```yaml
-alias: Kitchen - Auto - Bright -> Neutral
-description: ""
-triggers:
-  - trigger: state
-    entity_id:
-      - binary_sensor.kitchen_motion_occupancy
-    to: "off"
-    for:
-      hours: 0
-      minutes: 15
-      seconds: 0
-    from: "on"
-conditions:
-  - condition: state
-    entity_id: input_text.kitchen_preset
-    state: bright
-actions:
-  - condition: state
-    entity_id: binary_sensor.kitchen_motion_occupancy
-    state: "off"
-    for:
-      hours: 0
-      minutes: 15
-      seconds: 0
-  - action: script.mood_set
-    metadata: {}
-    data:
-      transition_time: 10
-      target_areas:
-        - kitchen
-      preset: default
-mode: single
-```
+
