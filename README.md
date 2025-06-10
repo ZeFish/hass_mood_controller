@@ -207,7 +207,7 @@ sequence:
                   {# any change you want in that mood/preset/areas combination #}
               
       - conditions:
-	 alias: Bright
+	      alias: Bright
           - condition: template
             value_template: "{{ preset == 'bright' }}"
         sequence:
@@ -342,7 +342,6 @@ action:
             entity_id: input_text.kitchen_preset
             state: "default"
         sequence:
-	   # Return the room to its proper state
           - service: script.mood_set
             data:
               target_areas:
@@ -355,7 +354,6 @@ action:
             entity_id: input_text.kitchen_preset
             state: "motion"
         sequence:
-          # Return the room to its proper state
           - service: script.mood_set
             data:
               target_areas:
