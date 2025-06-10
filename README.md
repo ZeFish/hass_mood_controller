@@ -120,7 +120,7 @@ You can still control areas that do not have dedicated `input_text` helpers.
 - If you call `mood_set` with no `target_areas`, it will target all areas in your Home Assistant instance. For areas without helpers, it will apply the requested mood using the `default` preset.
 - This is a great way to have secondary areas (like hallways or closets) follow the main home rhythm without needing their own complex state management.
 
-## The Controller : `mood_set` 
+## The Controller : `mood_set`
 This is the central nervous system of the entire setup. It is responsible for interpreting requests, determining which areas to change, and dispatching commands to the appropriate mood scripts.
 
 ```yaml
@@ -205,9 +205,9 @@ sequence:
                     value_template: "{{ 'living_room' in target_areas }}"
                 then:
                   {# any change you want in that mood/preset/areas combination #}
-              
+
       - conditions:
-	      alias: Bright
+        alias: Bright
           - condition: template
             value_template: "{{ preset == 'bright' }}"
         sequence:
@@ -221,7 +221,7 @@ sequence:
                     transition: "{{ transition_time }}"
                   action: light.turn_on
               for_each: "{{ target_areas }}"
-        
+
       - conditions:
         alias: "Off"
           - condition: template
@@ -289,7 +289,7 @@ At the end of its execution, `script.mood_set` fires a custom event named `mood_
     is_homewide: "{{ is_homewide }}"
 ```
 
-## Automating 
+## Automating
 The true power of this system is unlocked through automation. Because the state of every room is always known and stored in helpers, you can create highly specific and intelligent automations.
 ### Home Mood Changes
 A simple automation ties it all together. When the `input_text.home_mood` helper changes, it calls `script.mood_set` to propagate that change to all unlocked rooms.
