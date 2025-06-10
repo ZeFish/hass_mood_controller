@@ -1,7 +1,7 @@
 
 # Home Assistant Mood Controller
 
-Aura is a modular Home Assistant scripting system that allows centralized control of lighting across rooms using concepts like moods, presets, and transitions. It supports asynchronous operation, mood-based scenes, and fine-grained room-level logic.
+Mood controller is a modular Home Assistant scripting system that allows centralized control of lighting across rooms using concepts like moods, presets, and transitions. It supports asynchronous operation, mood-based scenes, and fine-grained room-level logic.
 
 ## The Problem: A Missing Rhythm
 
@@ -10,7 +10,7 @@ Home Assistant is incredibly powerful for connecting and automating devices. How
 This system solves that by establishing a clear hierarchy of moods and presets, ensuring that your home's lighting and atmosphere are always in sync with your life's rhythm.
 
 ## The Core: Moods and Presets
-At its heart, Aura embodies a "state-centric hierarchical automation" philosophy, where moods cascade from the house level down to individual rooms, yet each space retains the autonomy to maintain its own state when needed. The system uses minimal helpers that serve dual purposes as both configuration points and memory, ensuring your home can gracefully recover from any disruption.
+At its heart, Mood controller embodies a "state-centric hierarchical automation" philosophy, where moods cascade from the house level down to individual rooms, yet each space retains the autonomy to maintain its own state when needed. The system uses minimal helpers that serve dual purposes as both configuration points and memory, ensuring your home can gracefully recover from any disruption.
 
 ### Moods
 
