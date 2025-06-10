@@ -10,7 +10,7 @@ Home Assistant is incredibly powerful for connecting and automating devices. How
 This system solves that by establishing a clear hierarchy of moods and presets, ensuring that your home's lighting and atmosphere are always in sync with your life's rhythm.
 
 ## The Core: Moods and Presets
-At its heart, Mood controller embodies a "state-centric hierarchical automation" philosophy, where moods cascade from the house level down to individual rooms, yet each space retains the autonomy to maintain its own state when needed. The system uses minimal helpers that serve dual purposes as both configuration points and memory, ensuring your home can gracefully recover from any disruption.
+At its heart, Mood controller embodies a _state-centric hierarchical automation_ philosophy, where moods cascade from the house level down to individual rooms, yet each space retains the autonomy to maintain its own state when needed. The system uses minimal helpers that serve dual purposes as both configuration points and memory, ensuring your home can gracefully recover from any disruption.
 
 ### Moods
 
@@ -102,7 +102,9 @@ Here are some examples of how to call the `mood_set` script in your automations 
     preset: bright
 ```
 
-## How It Works: The Setup
+# How It Works: The Setup (4 steps)
+
+## 1. The helpers : `input_text.home_mood`
 
 The system relies on a few key components: Home Assistant *helpers* for state storage, a control script, and individual scripts for each mood.
 
@@ -120,7 +122,7 @@ You can still control areas that do not have dedicated `input_text` helpers.
 - If you call `mood_set` with no `target_areas`, it will target all areas in your Home Assistant instance. For areas without helpers, it will apply the requested mood using the `default` preset.
 - This is a great way to have secondary areas (like hallways or closets) follow the main home rhythm without needing their own complex state management.
 
-## The Controller : `mood_set`
+## 2. The Controller : `script.mood_set`
 This is the central nervous system of the entire setup. It is responsible for interpreting requests, determining which areas to change, and dispatching commands to the appropriate mood scripts.
 
 ```yaml
@@ -131,7 +133,7 @@ This is the central nervous system of the entire setup. It is responsible for in
 - transition_time: number of seconds for light transition (default: 2).
 ```
 
-### The "Smoking Gun": Dynamic Script Execution
+#### The "Smoking Gun" : Dynamic Script Execution
 
 The core of this system's flexibility comes from using Jinja2 templates to dynamically call scripts. A single action can trigger any mood script based on a variable, allowing for infinite scalability.
 
@@ -149,9 +151,38 @@ The core of this system's flexibility comes from using Jinja2 templates to dynam
 
 This makes the system infinitely extensible. To add a new mood, you simply create a new `script.mood_[newmood]` and the system will handle it automatically.
 
-## The Mood: Script Architecture
+## 3. The Automation : `automation.home_mood_change`
+When the `input_text.home_mood` helper changes, it calls `script.mood_set` to propagate that change to all unlocked rooms. The beauty of it is that if you use any "Do not disturb" or "Away" mode, you can disable the automation so that it does not trigger. Altho, you can keep updating the `input_text.house_mood` to keep the moods flowing. When you turn on the automation, it will automatically propagate the mood to all unlocked rooms and thus, keep your home just like you want it.
 
-### The Individual Mood Script (`script.mood_{mood_name}`)
+```yaml
+alias: Home mood change
+description: It call script.mood_set when input_text.home_mood change
+triggers:
+  - entity_id:
+      - input_text.home_mood
+    to: null
+    trigger: state
+  - trigger: state
+    entity_id:
+      - automation.home_mood_change
+    from: "off"
+    to: "on"
+conditions: []
+actions:
+  - action: script.mood_set
+    metadata: {}
+    data:
+      mood: "{{ states('input_text.home_mood') }}"
+      transition_time: 30
+mode: restart
+```
+
+> [!IMPORTANT]
+> Make sure that this automation is the one that mood_set disable and re-enable when the script need to update `input_text.house_mood` it is important or you might get an infinite loop.
+
+## 4. The Mood : `script.mood_{mood_name}`
+
+### The Individual Mood Script Architecture
 
 Each mood requires its own script (e.g., `script.mood_morning`). This script defines the specific scenes for each preset within that mood.
 
@@ -264,9 +295,11 @@ max: 10
 
 ### Area Locking
 
-The system includes a locking mechanism to prevent mood changes in sensitive areas. If an `input_boolean.area_id_lock` is `on`, any `mood_set` call that targets a group of areas will automatically exclude the locked area.
+The system includes a locking mechanism to prevent mood changes in sensitive areas. If an `input_boolean.[area_id]_lock` is `on`, any `mood_set` call that targets a group of areas will automatically exclude the locked area.
 
-A call made _specifically_ to that single locked area will still go through. This is the desired behavior for in-room controls, allowing someone in a locked room to still adjust their own lights.
+> [!TIP]
+> A call made _specifically_ to that single locked area will still go through. This is the desired behavior for in-room controls, allowing someone in a locked room to still adjust their own lights.
+
 ### Performance Optimization
 
 To ensure fast execution, `script.mood_set` intelligently groups areas by their required mood and preset combination. If 4 rooms need `Morning/default` and 1 room needs `Morning/off`, the script doesn't make 5 individual calls. It makes two optimized calls:
@@ -276,7 +309,7 @@ To ensure fast execution, `script.mood_set` intelligently groups areas by their 
 
 This significantly reduces overhead and execution time.
 
-## Event Hook: mood_setted
+### Event Hook: mood_setted
 
 At the end of its execution, `script.mood_set` fires a custom event named `mood_setted`. This event includes all relevant parameters—such as the targeted areas, mood, preset, and whether the change is home-wide—allowing other automations to react dynamically.
 
@@ -289,25 +322,11 @@ At the end of its execution, `script.mood_set` fires a custom event named `mood_
     is_homewide: "{{ is_homewide }}"
 ```
 
-## Automating
-The true power of this system is unlocked through automation. Because the state of every room is always known and stored in helpers, you can create highly specific and intelligent automations.
-### Home Mood Changes
-A simple automation ties it all together. When the `input_text.home_mood` helper changes, it calls `script.mood_set` to propagate that change to all unlocked rooms.
+> [!TIP]
+> I have a script that on birthdays or special occasions found in a calendar, it will call a script bound to that occasions and thus overwrite some lights after the moods have been setted.
 
-```yaml
-alias: home mood change
-description: The main script when the home mode changes
-triggers:
-  - platform: state
-    entity_id:
-      - input_text.home_mood
-actions:
-  - service: script.mood_set
-    data:
-      mood: "{{ states('input_text.home_mood') }}"
-      transition_time: 30
-mode: restart
-```
+## Automation Ideas
+The true power of this system is unlocked through automation. Because the state of every room is always known and stored in helpers, you can create highly specific and intelligent automations.
 
 #### Motion-Based Night Light
 

@@ -1,0 +1,20 @@
+alias: Home mood change
+description: It call script.mood_set when input_text.home_mood change
+triggers:
+  - entity_id:
+      - input_text.home_mood
+    to: null
+    trigger: state
+  - trigger: state
+    entity_id:
+      - automation.home_mood_change
+    from: "off"
+    to: "on"
+conditions: []
+actions:
+  - action: script.mood_set
+    metadata: {}
+    data:
+      mood: "{{ states('input_text.home_mood') }}"
+      transition_time: 30
+mode: restart
