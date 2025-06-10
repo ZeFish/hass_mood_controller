@@ -1,0 +1,285 @@
+alias: Mood Set
+description: >-
+  Controls lighting moods and presets across rooms. Can set specific moods, 
+  toggle between presets, and handle room-specific settings with locking
+  capability.
+icon: mdi:lightbulb-group
+fields:
+  target_areas:
+    name: Area(s)
+    description: >-
+      The area(s) to apply the mood to. If left empty, applies to all unlocked
+      areas.
+    selector:
+      area:
+        multiple: true
+    required: true
+  mood:
+    name: Mood
+    description: >-
+      The mood to set (Morning, Evening, etc). If not specified, each area keeps
+      its current mood.
+    selector:
+      text: {}
+    required: false
+  preset:
+    name: Preset
+    description: >-
+      Which preset to apply ("Off", "Neutral", "Bright"). Controls the
+      brightness level.
+    required: false
+    selector:
+      text: {}
+  toggle:
+    name: Toggle
+    description: >-
+      If true, toggles between the specified preset and Neutral when areas are
+      already  in the target preset state.
+    selector:
+      boolean: {}
+    default: true
+    required: false
+  transition_time:
+    name: Transition Time
+    description: Transition time for light changes in seconds.
+    selector:
+      number:
+        min: 0
+        max: 30
+        step: 1
+    default: 2
+    required: false
+mode: parallel
+max: 10
+sequence:
+  - variables:
+      toggle: "{{ toggle | default(false) }}"
+      transition_time: "{{ transition_time | default(2) | float }}"
+      is_refresh: >-
+        {{ target_areas is not defined and mood is not defined and preset is not
+        defined }}
+      is_homewide: "{{ target_areas is not defined and mood is defined }}"
+      areas_resolved: |
+        {% if target_areas is string %}
+          [{{ target_areas | tojson }}]
+        {% elif target_areas is list %}
+          {{ target_areas }}
+        {% else %}
+          {{ areas() }}
+        {% endif %}
+      areas_resolved_unlocked: |
+        {% if areas_resolved | length == 1 or is_refresh %}
+          {{ areas_resolved }}
+        {% else %}
+          {% set ns = namespace(output_areas=[]) %}
+          {% for area in areas_resolved %}
+            {% if states('input_boolean.' ~ area ~ '_lock') != 'on' %}
+              {% set ns.output_areas = ns.output_areas + [area] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.output_areas }}
+        {% endif %}
+    alias: Defined Variables
+  - alias: Step 1 - Update Helper if not a refresh
+    if:
+      - condition: template
+        value_template: "{{ is_refresh == false }}"
+    then:
+      - variables:
+          preset_resolved: |
+            {% set resolved = 'null' %}
+            {% if preset is defined %}
+              {% set resolved = preset %}
+              {% if toggle %}
+                {# Calculate sync status and current preset values only when needed #}
+                {% set ns = namespace(presets=[], all_same=false) %}
+                {% for area in areas_resolved_unlocked %}
+                  {% set entity = 'input_text.' ~ area ~ '_preset' %}
+                  {% if has_value(entity) %}
+                    {% set ns.presets = ns.presets + [states(entity)] %}
+                  {% endif %}
+                {% endfor %}
+                {% set all_same = ns.presets | count > 0 and ns.presets | unique | list | count == 1 %}
+                
+                {% if all_same %}
+                  {% set current_preset = ns.presets[0] if ns.presets else 'null' %}
+                  {% if current_preset != 'default' and preset != 'default' %}
+                    {% set resolved = 'default' %}
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+            {{ resolved }}
+          mood_resovled: |
+            {% if mood is defined %}
+              {{ mood }}
+            {% elif areas_resolved | length == 1 %}
+              {# If only one area is specified, use that area's current mood #}
+              {% set area_mood_entity = 'input_text.' ~ areas[0] ~ '_mood' %}
+              {% if has_value(area_mood_entity) %}
+                {{ states(area_mood_entity) }}
+              {% else %}
+                {{ states('input_text.home_mood') }}
+              {% endif %}
+            {% elif is_homewide %}
+              {{ states('input_text.home_mood') }}
+            {% else %}
+              null
+            {% endif %}
+        alias: Defined Variables
+      - alias: home Mood Update
+        if:
+          - condition: template
+            value_template: "{{ is_homewide }}"
+            alias: If full home
+          - alias: There is a mood to set and change
+            condition: template
+            value_template: >-
+              {{ mood_resovled != 'null' and states('input_text.home_mood') !=
+              mood_resovled }}
+        then:
+          - action: automation.turn_off
+            metadata: {}
+            data:
+              stop_actions: true
+            target:
+              entity_id: automation.home_mood_change
+          - action: input_text.set_value
+            metadata: {}
+            data:
+              value: "{{ mood_resovled }}"
+            target:
+              entity_id: input_text.home_mood
+          - alias: Turn on the automation back
+            if:
+              - condition: state
+                entity_id: input_boolean.do_not_disturb
+                state: "off"
+            then:
+              - delay:
+                  hours: 0
+                  minutes: 0
+                  seconds: 0
+                  milliseconds: 100
+              - action: automation.turn_on
+                metadata: {}
+                target:
+                  entity_id: automation.home_mood_change
+                data: {}
+      - alias: Areas Mood Update
+        if:
+          - alias: If a mood has been asked
+            condition: template
+            value_template: "{{ mood_resovled != 'null' }}"
+        then:
+          - alias: Areas Moods Update
+            repeat:
+              for_each: "{{ areas_resolved_unlocked }}"
+              sequence:
+                - alias: Update the area mood helper
+                  if:
+                    - alias: If the helper exists for the area
+                      condition: template
+                      value_template: >
+                        {{ states('input_text.' ~ repeat.item ~ '_mood') not in
+                        ['unknown', 'unavailable'] }}
+                  then:
+                    - data:
+                        value: "{{ mood_resovled }}"
+                      target:
+                        entity_id: input_text.{{ repeat.item }}_mood
+                      action: input_text.set_value
+                      alias: Set the asked mood in the area helper
+      - alias: Areas Presets Update
+        if:
+          - condition: template
+            value_template: "{{ preset_resolved != 'null' }}"
+            alias: If a preset has been asked
+        then:
+          - alias: Repeat for every unlocked areas
+            repeat:
+              for_each: "{{ areas_resolved_unlocked }}"
+              sequence:
+                - alias: Update the area preset helper
+                  if:
+                    - condition: template
+                      value_template: |
+                        {{ has_value('input_text.' ~ repeat.item ~ '_preset') }}
+                      alias: If the helper exists for the area
+                  then:
+                    - data:
+                        value: "{{ preset_resolved | lower }}"
+                      target:
+                        entity_id: input_text.{{ repeat.item }}_preset
+                      action: input_text.set_value
+                      alias: Set the asked preset in the area helper
+  - variables:
+      mood_preset_pair: >
+        {% set ns = namespace(groups=[]) %} {% for area in
+        areas_resolved_unlocked %}
+          {# Handle mood with proper fallback #}
+          {% set mood = states('input_text.' ~ area ~ '_mood') %}
+          {% if mood in ['unknown', 'unavailable'] %}
+            {% set mood = states('input_text.home_mood') %}
+          {% endif %}
+          
+          {# Handle preset with proper fallback #}
+          {% set preset = states('input_text.' ~ area ~ '_preset') %}
+          {% if preset in ['unknown', 'unavailable'] %}
+            {% set preset = 'default' %}
+          {% endif %}
+          
+          {% set key = mood ~ '|' ~ preset %}
+          {% set match = ns.groups | selectattr('pair', 'equalto', key) | list | first %}
+          {% if match %}
+            {% set ns.groups = ns.groups | rejectattr('pair', 'equalto', key) | list %}
+            {% set ns.groups = ns.groups + [ {'pair': key, 'areas': match.areas + [area]} ] %}
+          {% else %}
+            {% set ns.groups = ns.groups + [ {'pair': key, 'areas': [area]} ] %}
+          {% endif %}
+        {% endfor %} {{ ns.groups }}
+    alias: Step 2 - Define the Mood/Pair list
+  - alias: Step 3 - Loop the Mood/Preset pairs and call their script
+    repeat:
+      for_each: "{{ mood_preset_pair }}"
+      sequence:
+        - variables:
+            is_first_call: "{{ repeat.index == 1 }}"
+            is_homewide_safe: "{{ (is_homewide | default(false)) and is_first_call }}"
+            mood_script: script.mood_{{ repeat.item.pair.split('|')[0] }}
+            target_areas: "{{ repeat.item.areas }}"
+            preset: "{{ repeat.item.pair.split('|')[1] | lower }}"
+        - alias: Call the mood script if it exists
+          if:
+            - alias: Does the script exist?
+              condition: template
+              value_template: "{{ states(mood_script) != 'unknown' }}"
+          then:
+            - data:
+                target_areas: "{{ target_areas }}"
+                preset: "{{ preset }}"
+                transition_time: "{{ transition_time | default(2) }}"
+                is_homewide: "{{ is_homewide_safe }}"
+              action: "{{ mood_script }}"
+              alias: Call the mood script (Sync)
+              continue_on_error: true
+              enabled: true
+          else:
+            - action: system_log.write
+              metadata: {}
+              data:
+                level: warning
+                message: "Mood Set : Mood script not found : {{ mood_script }}"
+            - action: persistent_notification.create
+              metadata: {}
+              data:
+                message: "Mood script not found : {{ mood_script }}"
+                title: Mood Set
+                notification_id: mood_script_not_found_{{ mood_script }}
+    enabled: true
+  - event: mood_setted
+    event_data:
+      target_areas: "{{ areas_resolved_unlocked }}"
+      mood: "{{ mood_resovled }}"
+      preset: "{{ preset_resolved }}"
+      is_homewide: "{{ is_homewide }}"

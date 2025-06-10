@@ -1,0 +1,95 @@
+alias: Morning
+fields: {}
+description: ""
+icon: mdi:weather-sunset-up
+sequence:
+  - alias: Preset Agnostic Actions
+    parallel:
+      - alias: Kitchen
+        if:
+          - alias: If area is requested
+            condition: template
+            value_template: "{{ 'kitchen' in target_areas }}"
+        then:
+      - alias: Living Room
+        if:
+          - alias: If area is requested
+            condition: template
+            value_template: "{{ 'living_room' in target_areas }}"
+        then:
+  - alias: Preset Logic
+    choose:
+      - alias: Default
+        conditions:
+          - condition: template
+            value_template: "{{ preset == 'default' }}"
+        sequence:
+          - alias: Run thru the rooms
+            parallel:
+              - alias: Kitchen
+                if:
+                  - alias: If area is requested
+                    condition: template
+                    value_template: "{{ 'kitchen' in target_areas }}"
+                then:
+
+              - alias: Living Room
+                if:
+                  - alias: If area is requested
+                    condition: template
+                    value_template: "{{ 'living_room' in target_areas }}"
+                then:
+                  
+      - alias: Bright 
+        conditions:
+          - condition: template
+            value_template: "{{ preset == 'bright' }}"
+        sequence:
+          - repeat:
+              sequence:
+                - target:
+                    area_id: "{{ repeat.item }}"
+                  data:
+                    brightness_pct: 55
+                    color_temp_kelvin: 2700
+                    transition: "{{ transition_time | default(2) }}"
+                  action: light.turn_on
+              for_each: "{{ target_areas }}"
+        
+      - alias: "Off" 
+        conditions:
+          - condition: template
+            value_template: "{{ preset == 'off' }}"
+        sequence:
+          - repeat:
+              sequence:
+                - target:
+                    area_id: "{{ repeat.item }}"
+                  data:
+                    transition: "{{ transition_time | default(2) }}"
+                  action: light.turn_off
+              for_each: "{{ target_areas }}"
+  
+    default:
+      - action: persistent_notification.create
+        metadata: {}
+        data:
+          message: |-
+            Preset not found
+            Mood : Morning
+            Preset : {{ preset }}
+          title: Mood Set
+          notification_id: mood_script_preset_not_found_morning_{{ preset }}
+
+  - alias: If it is home wide change
+    condition: template
+    value_template: "{{ is_homewide | default(true) }}"
+  - action: input_text.set_value
+    metadata: {}
+    data:
+      value: "{{ states('input_text.playlist_morning') }}"
+    target:
+      entity_id: input_text.playlist_home
+    alias: Define home playlist
+mode: parallel
+max: 10
