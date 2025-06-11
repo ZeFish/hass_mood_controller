@@ -301,7 +301,7 @@ max: 10
 The system includes a locking mechanism to prevent mood changes in sensitive areas. If an `input_boolean.[area_id]_lock` is `on`, any `mood_set` call that targets a group of areas will automatically exclude the locked area.
 
 > [!TIP]
-> A call made _specifically_ to that single locked area will still go through. This is the desired behavior for in-room controls, allowing someone in a locked room to still adjust their own lights.
+> A call made _specifically_ to **a single** locked area will still go through. This is the desired behavior for in-room controls, allowing someone in a locked room to still adjust their own lights.
 
 ### is_triggered_by_user
 
