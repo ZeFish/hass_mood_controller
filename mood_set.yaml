@@ -53,6 +53,7 @@ mode: parallel
 max: 10
 sequence:
   - variables:
+      is_triggered_by_user: "{{ context.user_id is not none }}"
       toggle: "{{ toggle | default(false) }}"
       transition_time: "{{ transition_time | default(2) | float }}"
       is_refresh: >-
@@ -138,34 +139,12 @@ sequence:
               {{ mood_resovled != 'null' and states('input_text.home_mood') !=
               mood_resovled }}
         then:
-          - action: automation.turn_off
-            metadata: {}
-            data:
-              stop_actions: true
-            target:
-              entity_id: automation.home_mood_change
           - action: input_text.set_value
             metadata: {}
             data:
               value: "{{ mood_resovled }}"
             target:
               entity_id: input_text.home_mood
-          - alias: Turn on the automation back
-            if:
-              - condition: state
-                entity_id: input_boolean.do_not_disturb
-                state: "off"
-            then:
-              - delay:
-                  hours: 0
-                  minutes: 0
-                  seconds: 0
-                  milliseconds: 100
-              - action: automation.turn_on
-                metadata: {}
-                target:
-                  entity_id: automation.home_mood_change
-                data: {}
       - alias: Areas Mood Update
         if:
           - alias: If a mood has been asked
@@ -282,3 +261,4 @@ sequence:
       mood: "{{ mood_resovled }}"
       preset: "{{ preset_resolved }}"
       is_homewide: "{{ is_homewide }}"
+      is_triggered_by_user: "{{ is_triggered_by_user }}"

@@ -170,7 +170,11 @@ triggers:
       - automation.home_mood_change
     from: "off"
     to: "on"
-conditions: []
+conditions:
+  - condition: state
+    entity_id: script.mood_set
+    state: "off"
+    alias: This prevent possible infinite loop with mood_set
 actions:
   - action: script.mood_set
     metadata: {}
@@ -302,6 +306,10 @@ The system includes a locking mechanism to prevent mood changes in sensitive are
 
 > [!TIP]
 > A call made _specifically_ to that single locked area will still go through. This is the desired behavior for in-room controls, allowing someone in a locked room to still adjust their own lights.
+
+### is_triggered_by_user
+
+This variable is added to track whether the mood change was triggered by a user action or an automation. For now, nothing is done with it, but it's there for future expansion. Something in the like of don't change anything if I specifically ask for this mood
 
 ### Performance Optimization
 

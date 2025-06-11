@@ -10,7 +10,11 @@ triggers:
       - automation.home_mood_change
     from: "off"
     to: "on"
-conditions: []
+conditions:
+  - condition: state
+    entity_id: script.mood_set
+    state: "off"
+    alias: This prevent possible infinite loop with mood_set
 actions:
   - action: script.mood_set
     metadata: {}
