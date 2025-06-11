@@ -113,8 +113,8 @@ The system relies on a few key components: Home Assistant *helpers* for state st
 
 State is stored using `input_text` helpers. *This makes the current mood and preset of any area instantly accessible to other automations.*
 
-| ---------------------------- | --------------- | --------- | --------------------------------------------------------------------------------------------- |
-| **Helper**                   | **Type**        | **Scope** | **Description**                                                                               |
+|  **Helper**   |  **Type**  |    **Scope**   |        **Descripption**           |
+| ------------- | --------- | --------- | -------------------------------- |
 | `input_text.home_mood`       | `input_text`    | Global    | Stores the current active Mood for the entire home.                                           |
 | `input_text.area_id_mood`    | `input_text`    | Per Area  | (Optional) Stores the current Mood for a specific area (e.g., `input_text.kitchen_mood`).     |
 | `input_text.area_id_preset`  | `input_text`    | Per Area  | (Optional) Stores the current Preset for a specific area (e.g., `input_text.kitchen_preset`). |
@@ -323,7 +323,7 @@ To ensure fast execution, `script.mood_set` intelligently groups areas by their 
       - room3
       - room4
     preset: default
-
+    
 - service: script.mood_morning
   data:
     target_areas:
@@ -857,3 +857,4 @@ actions:
           entity_id: input_text.home_mood
 mode: restart
 ```
+
