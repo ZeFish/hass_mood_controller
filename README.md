@@ -183,9 +183,6 @@ actions:
 mode: restart
 ```
 
-> [!IMPORTANT]
-> Make sure that this automation is the one that mood_set disable and re-enable when the script need to update `input_text.house_mood` it is important or you might get an infinite loop.
-
 ## 4. The Mood : `script.mood_{mood_name}`
 
 ### The Individual Mood Script Architecture
@@ -323,7 +320,7 @@ To ensure fast execution, `script.mood_set` intelligently groups areas by their 
       - room3
       - room4
     preset: default
-    
+
 - service: script.mood_morning
   data:
     target_areas:
@@ -857,4 +854,3 @@ actions:
           entity_id: input_text.home_mood
 mode: restart
 ```
-
