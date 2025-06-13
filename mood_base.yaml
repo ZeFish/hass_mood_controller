@@ -3,20 +3,6 @@ fields: {}
 description: ""
 icon: mdi:weather-sunset-up
 sequence:
-  - alias: Preset Agnostic Actions
-    parallel:
-      - alias: Kitchen
-        if:
-          - alias: If area is requested
-            condition: template
-            value_template: "{{ 'kitchen' in target_areas }}"
-        then:
-      - alias: Living Room
-        if:
-          - alias: If area is requested
-            condition: template
-            value_template: "{{ 'living_room' in target_areas }}"
-        then:
   - alias: Preset Logic
     choose:
       - alias: Default
@@ -38,8 +24,7 @@ sequence:
                   - alias: If area is requested
                     condition: template
                     value_template: "{{ 'living_room' in target_areas }}"
-                then:
-                  
+                then:   
       - alias: Bright 
         conditions:
           - condition: template
@@ -80,7 +65,20 @@ sequence:
             Preset : {{ preset }}
           title: Mood Set
           notification_id: mood_script_preset_not_found_morning_{{ preset }}
-
+  - alias: Preset Agnostic Actions
+    parallel:
+      - alias: Kitchen
+        if:
+          - alias: If area is requested
+            condition: template
+            value_template: "{{ 'kitchen' in target_areas }}"
+        then:
+      - alias: Living Room
+        if:
+          - alias: If area is requested
+            condition: template
+            value_template: "{{ 'living_room' in target_areas }}"
+        then:
   - alias: If it is home wide change
     condition: template
     value_template: "{{ is_homewide | default(true) }}"
