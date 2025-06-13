@@ -116,7 +116,7 @@ sequence:
               {{ mood }}
             {% elif areas_resolved | length == 1 %}
               {# If only one area is specified, use that area's current mood #}
-              {% set area_mood_entity = 'input_text.' ~ areas[0] ~ '_mood' %}
+              {% set area_mood_entity = 'input_text.' ~ areas_resolved[0] ~ '_mood' %}
               {% if has_value(area_mood_entity) %}
                 {{ states(area_mood_entity) }}
               {% else %}
