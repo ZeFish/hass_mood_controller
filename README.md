@@ -9,6 +9,8 @@ Home Assistant is incredibly powerful for connecting and automating devices. How
 
 This system solves that by establishing a clear hierarchy of moods and presets, ensuring that your home's lighting and atmosphere are always in sync with your life's rhythm.
 
+---
+
 ## The Core: Moods and Presets
 At its heart, Mood controller embodies a _state-centric hierarchical automation_ philosophy, where moods cascade from the house level down to individual rooms, yet each space retains the autonomy to maintain its own state when needed. The system uses minimal helpers that serve dual purposes as both configuration points and memory, ensuring your home can gracefully recover from any disruption.
 
@@ -104,6 +106,8 @@ Here are some examples of how to call the `mood_set` script in your automations 
     toggle: true
     preset: bright
 ```
+
+---
 
 # How It Works: The Setup (4 steps)
 
@@ -293,6 +297,30 @@ mode: parallel
 max: 10
 ```
 
+---
+
+## Practical Examples of Mood Rhythm
+
+In my own home, I’ve created automations that define when moods change based on time, activity, and environmental data. This gives the house a rhythm that adapts fluidly throughout the day.
+
+#### Here's how my moods typically shift:
+
+- **Morning**: Set after 6:30 AM once motion has been detected for more than 45 seconds in three key rooms. This only applies if the current home mood is *Night*, helping the home gently transition into the day.
+- **Day**: Activated when outdoor illuminance rises above 4200 lux, but only if the current mood is *Morning* or *Evening*.
+- **Evening**: Triggered either at 4:30 PM or when outdoor light drops below 1000 lux in the afternoon, and only if the current home mood is *Morning* or *Day*.
+- **Unwind**: Turns on at 6:30 PM. It’s a family cue that it’s time to start the evening routine with the kids.
+- **Night**: At 10:30 PM, the house transitions into *Night* mood, turning off unnecessary lights and notifications.
+
+
+### How the System is Used Throughout the House
+
+- **Speaker volumes** adjust automatically depending on the current mood — quieter at night, livelier during the day.
+- **Motion-based lighting automations** are mood-aware: for example, they don’t reactivate lights during *Night* or when the preset is *Off*.
+- **Energy-saving logic**: If a room is in the *Bright* preset and no motion is detected for 15 minutes, it reverts to the room’s default preset.
+- **Mood transitions are smart**: If a room is in `Morning | Bright` and the house mood shifts to *Evening*, the room adopts the new mood while keeping the *Bright* preset.
+- **Notifications are silenced** when the home is in *Night* mood — no interruptions.
+
+---
 
 ## Advanced Features
 
@@ -345,6 +373,8 @@ At the end of its execution, `script.mood_set` fires a custom event named `mood_
 
 > [!TIP]
 > I have a script that on birthdays or special occasions found in a calendar, it will call a script bound to that occasions and thus overwrite some lights after the moods have been setted.
+
+---
 
 ## Automation Ideas
 The true power of this system is unlocked through automation. Because the state of every room is always known and stored in helpers, you can create highly specific and intelligent automations.
