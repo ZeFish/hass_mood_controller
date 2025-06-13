@@ -64,7 +64,7 @@ sequence:
         {# Normalize target_areas: wrap single string as list, use as-is if already a list, or fallback to all areas #}
         {% set resolved =
         ([target_areas] if target_areas is string else
-         target_areas if target_areas is iterable else
+         target_areas if target_areas is list else
          areas()) %}
 
         {# If only one area or this is a refresh (global update), skip locking check #}
