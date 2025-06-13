@@ -61,10 +61,13 @@ sequence:
         defined }}
       is_homewide: "{{ target_areas is not defined and mood is defined }}"
       areas_resolved: |-
+        {# Normalize target_areas: wrap single string as list, use as-is if already a list, or fallback to all areas #}
         {% set resolved =
         ([target_areas] if target_areas is string else
          target_areas if target_areas is iterable else
          areas()) %}
+
+        {# If only one area or this is a refresh (global update), skip locking check #}
         {% if resolved | length == 1 or is_refresh %}
           {{ resolved }}
         {% else %}
@@ -83,7 +86,8 @@ sequence:
         value_template: "{{ is_refresh == false }}"
     then:
       - variables:
-          preset_resolved: |
+          preset_resolved: |-
+            {# Determine the final preset to use, factoring in toggle behavior and sync #}
             {% set resolved = 'null' %}
             {% if preset is defined %}
               {% set resolved = preset %}
@@ -97,7 +101,8 @@ sequence:
                   {% endif %}
                 {% endfor %}
                 {% set all_same = ns.presets | count > 0 and ns.presets | unique | list | count == 1 %}
-                
+
+                {# If all areas share the same preset, toggle it off (set to "default") if it's the same as the asked preset #}
                 {% if all_same %}
                   {% set current_preset = ns.presets[0] if ns.presets else 'null' %}
                   {% if current_preset != 'default' and preset != 'default' %}
@@ -107,7 +112,8 @@ sequence:
               {% endif %}
             {% endif %}
             {{ resolved }}
-          mood_resovled: |
+          mood_resolved: |-
+            {# If mood is given directly, use it. Otherwise infer mood based on scope: single area or homewide fallback. #}
             {% if mood is defined %}
               {{ mood }}
             {% elif areas_resolved | length == 1 %}
@@ -132,20 +138,20 @@ sequence:
           - alias: There is a mood to set and change
             condition: template
             value_template: >-
-              {{ mood_resovled != 'null' and states('input_text.home_mood') !=
-              mood_resovled }}
+              {{ mood_resolved != 'null' and states('input_text.home_mood') !=
+              mood_resolved }}
         then:
           - action: input_text.set_value
             metadata: {}
             data:
-              value: "{{ mood_resovled }}"
+              value: "{{ mood_resolved }}"
             target:
               entity_id: input_text.home_mood
       - alias: Areas Mood Update
         if:
           - alias: If a mood has been asked
             condition: template
-            value_template: "{{ mood_resovled != 'null' }}"
+            value_template: "{{ mood_resolved != 'null' }}"
         then:
           - alias: Areas Moods Update
             repeat:
@@ -159,7 +165,7 @@ sequence:
                         {{ has_value('input_text.' ~ repeat.item ~ '_mood') }}
                   then:
                     - data:
-                        value: "{{ mood_resovled }}"
+                        value: "{{ mood_resolved }}"
                       target:
                         entity_id: input_text.{{ repeat.item }}_mood
                       action: input_text.set_value
@@ -188,7 +194,8 @@ sequence:
                       action: input_text.set_value
                       alias: Set the asked preset in the area helper
   - variables:
-      mood_preset_pair: >
+      mood_preset_pair: |-
+        {# Group areas that share the same mood/preset pair to minimize script calls and consolidate transitions #}
         {% set ns = namespace(groups=[]) %} {% for area in
         areas_resolved %}
           {# Handle mood with proper fallback #}
@@ -202,7 +209,8 @@ sequence:
           {% if preset in ['unknown', 'unavailable'] %}
             {% set preset = 'default' %}
           {% endif %}
-          
+
+          {# Use pipe separator to form a unique key for grouping #}
           {% set key = mood ~ '|' ~ preset %}
           {% set match = ns.groups | selectattr('pair', 'equalto', key) | list | first %}
           {% if match %}
@@ -225,7 +233,7 @@ sequence:
             preset: "{{ repeat.item.pair.split('|')[1] | lower }}"
         - alias: Call the mood script if it exists
           if:
-            - alias: Does the script exist?
+            - alias: Check if the mood script exists before calling
               condition: template
               value_template: "{{ has_value(mood_script) }}"
           then:
@@ -245,6 +253,7 @@ sequence:
                 level: warning
                 message: "Mood Set : Mood script not found : {{ mood_script }}"
             - action: persistent_notification.create
+              alias: Notify user via UI if a script is missing (e.g., script.mood_evening doesn't exist)
               metadata: {}
               data:
                 message: "Mood script not found : {{ mood_script }}"
@@ -252,9 +261,10 @@ sequence:
                 notification_id: mood_script_not_found_{{ mood_script }}
     enabled: true
   - event: mood_setted
+    alias: Broadcast event for listeners (logging, debugging, metrics, follow-up automations, etc.)
     event_data:
       target_areas: "{{ areas_resolved }}"
-      mood: "{{ mood_resovled }}"
+      mood: "{{ mood_resolved }}"
       preset: "{{ preset_resolved }}"
       is_homewide: "{{ is_homewide }}"
       is_triggered_by_user: "{{ is_triggered_by_user }}"
