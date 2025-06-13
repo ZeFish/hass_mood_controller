@@ -60,25 +60,21 @@ sequence:
         {{ target_areas is not defined and mood is not defined and preset is not
         defined }}
       is_homewide: "{{ target_areas is not defined and mood is defined }}"
-      areas_resolved: |
-        {% if target_areas is string %}
-          [{{ target_areas | tojson }}]
-        {% elif target_areas is list %}
-          {{ target_areas }}
+      areas_resolved: |-
+        {% set resolved =
+        ([target_areas] if target_areas is string else
+         target_areas if target_areas is iterable else
+         areas()) %}
+        {% if resolved | length == 1 or is_refresh %}
+          {{ resolved }}
         {% else %}
-          {{ areas() }}
-        {% endif %}
-      areas_resolved_unlocked: |
-        {% if areas_resolved | length == 1 or is_refresh %}
-          {{ areas_resolved }}
-        {% else %}
-          {% set ns = namespace(output_areas=[]) %}
-          {% for area in areas_resolved %}
+          {% set ns = namespace(output=[]) %}
+          {% for area in resolved %}
             {% if states('input_boolean.' ~ area ~ '_lock') != 'on' %}
-              {% set ns.output_areas = ns.output_areas + [area] %}
+              {% set ns.output = ns.output + [area] %}
             {% endif %}
           {% endfor %}
-          {{ ns.output_areas }}
+          {{ ns.output }}
         {% endif %}
     alias: Defined Variables
   - alias: Step 1 - Update Helper if not a refresh
@@ -94,7 +90,7 @@ sequence:
               {% if toggle %}
                 {# Calculate sync status and current preset values only when needed #}
                 {% set ns = namespace(presets=[], all_same=false) %}
-                {% for area in areas_resolved_unlocked %}
+                {% for area in areas_resolved %}
                   {% set entity = 'input_text.' ~ area ~ '_preset' %}
                   {% if has_value(entity) %}
                     {% set ns.presets = ns.presets + [states(entity)] %}
@@ -153,7 +149,7 @@ sequence:
         then:
           - alias: Areas Moods Update
             repeat:
-              for_each: "{{ areas_resolved_unlocked }}"
+              for_each: "{{ areas_resolved }}"
               sequence:
                 - alias: Update the area mood helper
                   if:
@@ -176,7 +172,7 @@ sequence:
         then:
           - alias: Repeat for every unlocked areas
             repeat:
-              for_each: "{{ areas_resolved_unlocked }}"
+              for_each: "{{ areas_resolved }}"
               sequence:
                 - alias: Update the area preset helper
                   if:
@@ -194,7 +190,7 @@ sequence:
   - variables:
       mood_preset_pair: >
         {% set ns = namespace(groups=[]) %} {% for area in
-        areas_resolved_unlocked %}
+        areas_resolved %}
           {# Handle mood with proper fallback #}
           {% set mood = states('input_text.' ~ area ~ '_mood') %}
           {% if mood in ['unknown', 'unavailable'] %}
@@ -257,7 +253,7 @@ sequence:
     enabled: true
   - event: mood_setted
     event_data:
-      target_areas: "{{ areas_resolved_unlocked }}"
+      target_areas: "{{ areas_resolved }}"
       mood: "{{ mood_resovled }}"
       preset: "{{ preset_resolved }}"
       is_homewide: "{{ is_homewide }}"
